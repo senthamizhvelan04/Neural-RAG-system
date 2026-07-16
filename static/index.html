@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuralRAG — AI Command Center</title>
+    <meta name="description" content="NeuralRAG - Enterprise AI Command Center">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=5.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬛</text></svg>">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    </div>
+                    <span class="logo-text">NeuralRAG</span>
+                </div>
+                <span class="logo-badge">v3.0</span>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="sb-section">
+                    <h3 class="sb-title">Model Configuration</h3>
+                    <div class="model-selector" id="modelSelector">
+                        <button class="model-btn active" data-model="local" id="btnLocal"><span class="mdot"></span><span>LM Studio (Local)</span></button>
+                        <button class="model-btn" data-model="groq" id="btnGroq"><span class="mdot"></span><span>Groq (Llama 3.3)</span></button>
+                        <button class="model-btn" data-model="gemini" id="btnGemini"><span class="mdot"></span><span>Gemini 2.5 Flash</span></button>
+                        <button class="model-btn" data-model="openrouter" id="btnOpenRouter"><span class="mdot"></span><span>OpenRouter</span></button>
+                    </div>
+                </div>
+                
+                <div class="sb-section">
+                    <h3 class="sb-title">Active Tools</h3>
+                    <label class="toggle-row" for="toggleWebSearch">
+                        <div class="toggle-info">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            <span>Web Search</span>
+                        </div>
+                        <div class="toggle-switch"><input type="checkbox" id="toggleWebSearch"><span class="toggle-slider"></span></div>
+                    </label>
+                    <label class="toggle-row" for="toggleSystemControl">
+                        <div class="toggle-info">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                            <span>System Control</span>
+                        </div>
+                        <div class="toggle-switch"><input type="checkbox" id="toggleSystemControl" checked><span class="toggle-slider"></span></div>
+                    </label>
+                    <label class="toggle-row" for="toggleMySQL">
+                        <div class="toggle-info">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                            <span>SQL Access</span>
+                        </div>
+                        <div class="toggle-switch"><input type="checkbox" id="toggleMySQL" checked><span class="toggle-slider"></span></div>
+                    </label>
+                    <label class="toggle-row" for="toggleImageGen">
+                        <div class="toggle-info">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span>Image Synthesis</span>
+                        </div>
+                        <div class="toggle-switch"><input type="checkbox" id="toggleImageGen" checked><span class="toggle-slider"></span></div>
+                    </label>
+                </div>
+
+                <div class="sb-section">
+                    <h3 class="sb-title">Knowledge Context</h3>
+                    <div class="upload-zone" id="uploadZone">
+                        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.jpg,.png,.jpeg,.xlsx,.xls" hidden>
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <p class="upload-text">Upload documents</p>
+                        <p class="upload-hint">PDF, TXT, XLSX, PNG</p>
+                    </div>
+                    <div class="upload-list" id="uploadList"></div>
+                    <button class="btn-primary" id="btnSaveBrain" disabled style="margin-top: 8px;">
+                        ⚡ Sync to Brain
+                    </button>
+                    
+                    <div class="saved-section" style="margin-top: 20px;">
+                        <h3 class="sb-title">Indexed Files</h3>
+                        <div class="upload-list" id="savedFilesList"></div>
+                    </div>
+                </div>
+
+                <div class="sb-section">
+                    <h3 class="sb-title">Provider Keys</h3>
+                    <div class="key-mgr">
+                        <div class="custom-select">
+                            <select id="keyProvider" class="key-sel">
+                                <option value="gemini">Gemini</option>
+                                <option value="groq">Groq</option>
+                                <option value="openrouter">OpenRouter</option>
+                            </select>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <div class="key-row">
+                            <input type="password" id="keyInput" class="key-inp" placeholder="sk-...">
+                            <button class="btn-secondary btn-addkey" id="btnAddKey">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            </button>
+                        </div>
+                        <div class="key-list" id="keyList"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <button class="btn-ghost btn-clear" id="btnClear">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    Clear History
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main" id="main">
+            <header class="topbar">
+                <button class="btn-menu" id="btnToggleSidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <div class="topbar-status">
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span class="status-txt" id="statusText">ONLINE</span>
+                    </div>
+                </div>
+                <div class="topbar-model" id="topbarModel">LM Studio (Local)</div>
+            </header>
+            
+            <div class="chat-area" id="chatArea">
+                <div class="welcome" id="welcome">
+                    <div class="welcome-center">
+                        <div class="welcome-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
+                                <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+                            </svg>
+                        </div>
+                        <h1 class="welcome-title">What can I build for you?</h1>
+                        <p class="welcome-desc">Upload documents, query databases, generate visuals, or just ask anything.</p>
+                        
+                        <div class="welcome-chips">
+                            <button class="chip" data-prompt="Query the database for our top 5 customers">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                                Database Query
+                            </button>
+                            <button class="chip" data-prompt="Open Chrome and navigate to github.com">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                                System Control
+                            </button>
+                            <button class="chip" data-prompt="Generate a high quality image of a modern office">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                Image Generation
+                            </button>
+                            <button class="chip" data-prompt="Summarize the information in the uploaded documents">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                Analyze Documents
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="messages" id="messages"></div>
+            </div>
+            
+            <div class="input-area">
+                <div class="input-wrap" id="inputWrapper">
+                    <button class="btn-mic" id="btnMic" title="Voice Input">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                    </button>
+                    <textarea id="chatInput" placeholder="Message NeuralRAG..." rows="1"></textarea>
+                    <button class="btn-send" id="btnSend" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    AI can make mistakes. Consider verifying important information.
+                </div>
+            </div>
+        </main>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
