@@ -104,7 +104,7 @@ export default function App() {
           ) : (
             <div className="max-w-3xl mx-auto space-y-6">
               {messages.map(m => (
-                <MessageBubble key={m.id} message={m} />
+                (m.role === 'assistant' && m.content === '' && isProcessing) ? null : <MessageBubble key={m.id} message={m} />
               ))}
 
               {/* Typing indicator */}

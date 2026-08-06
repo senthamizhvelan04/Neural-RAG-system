@@ -58,7 +58,7 @@ class KeyPool:
             "groq": "GROQ_API_KEYS",
         }
         for provider, env_var in env_map.items():
-            raw = os.getenv(env_var, "")
+            raw = os.getenv(env_var, os.getenv(env_var.replace("KEYS", "KEY"), ""))
             keys = [k.strip() for k in raw.split(",") if k.strip()]
             self.pools[provider] = keys
             self.index[provider] = 0
@@ -533,10 +533,10 @@ def chat_stream():
                 chat_history.append(AIMessage(content=msg["content"]))
 
         def generate():
-            agent_executor = get_agent()
-            final_answer = ""
-            tools_used = []
             try:
+                agent_executor = get_agent()
+                final_answer = ""
+                tools_used = []
                 for chunk in agent_executor.stream({"input": user_message, "chat_history": chat_history}):
                     if "actions" in chunk:
                         for action in chunk["actions"]:
