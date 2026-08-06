@@ -1,6 +1,7 @@
 # NeuralRAG: Autonomous Agentic RAG System
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Available-success?style=for-the-badge)](https://neural-rag-system.onrender.com/)
+**Live Demo:** [https://neural-rag-system.onrender.com/](https://neural-rag-system.onrender.com/)
+
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![LangChain](https://img.shields.io/badge/LangChain-Enabled-lightgrey?style=for-the-badge)](https://langchain.com/)
 [![React](https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
