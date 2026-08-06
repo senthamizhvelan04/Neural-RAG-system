@@ -535,6 +535,9 @@ def chat_stream():
 
         def generate():
             try:
+                # Yield immediately to prevent Gunicorn timeout and verify stream works
+                yield f"data: {json.dumps({'status': 'Connecting to AI model...'})}\n\n"
+                
                 agent_executor = get_agent()
                 final_answer = ""
                 tools_used = []
