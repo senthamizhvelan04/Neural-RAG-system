@@ -22,16 +22,15 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, activeMode
           return (
             <motion.button
               key={model.id}
-              whileHover={isAvailable ? { scale: 1.01 } : {}}
-              whileTap={isAvailable ? { scale: 0.98 } : {}}
-              onClick={() => isAvailable && onSelect(model.id)}
-              disabled={!isAvailable}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSelect(model.id)}
               className={`
                 relative flex items-center justify-between p-3 rounded-lg border text-left transition-all
                 ${isActive 
                   ? 'bg-[var(--color-surface-alt)] border-[var(--color-accent)] shadow-sm' 
                   : 'bg-[var(--color-surface)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]'}
-                ${!isAvailable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                cursor-pointer
               `}
             >
               {isActive && (
@@ -42,6 +41,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, activeMode
                 <span className={`text-sm font-medium ${isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'}`}>
                   {model.name}
                 </span>
+                {!isAvailable && (
+                  <span className="text-[10px] text-red-500 font-semibold mt-0.5">Needs API Key</span>
+                )}
               </div>
               
               <div className="flex items-center gap-2">
