@@ -4,3 +4,14 @@ __pycache__/
 .env
 .pytest_cache/
 *.pyc
+
+# Pass 1 Cleanup
+temp_*
+*.log
+pip_err.txt
+error.log
+chroma_db_data/
+*.pdf
+*.xlsx
+static/generated/
+.agents/

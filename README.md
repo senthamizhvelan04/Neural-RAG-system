@@ -1,51 +1,31 @@
-# NeuralRAG System
+# NeuralRAG 
 
-## Overview
-NeuralRAG is an enterprise-grade AI Command Center designed to bridge the gap between static data repositories and actionable, dynamic intelligence. By implementing an advanced Retrieval-Augmented Generation (RAG) architecture alongside an autonomous tool-calling engine, NeuralRAG transforms passive documents and databases into an interactive knowledge hub.
+NeuralRAG is a personal learning project I built to explore Retrieval-Augmented Generation (RAG), LangChain agents, and autonomous tool-calling. I wanted to move beyond basic API scripts and build a full-stack chat application that can read local files, query a database, and dynamically search the web.
 
-## The Problem
-Modern organizations suffer from fragmented data silos. Knowledge is trapped within disparate file formats (PDFs, Excel spreadsheets, Text documents) or rigid relational databases. Traditional search tools only return links or raw text, forcing users to manually synthesize information, write complex SQL queries, or rely on separate tools for visualization and web research. 
-
-This fragmentation results in significant context-switching, decreased productivity, and a steep learning curve for non-technical stakeholders who need immediate, synthesized answers from complex datasets.
-
-## The Solution
-NeuralRAG solves this by providing a unified, natural language interface to all organizational knowledge. It acts as an intelligent intermediary that can simultaneously read local files, query structured databases, and search the open web, synthesizing the results into coherent, context-aware responses.
-
-Key capabilities include:
-- **Intelligent Contextualization**: Users can upload diverse file types (PDF, TXT, XLSX). The system chunks, embeds, and stores this data in a local Chroma vector database for precise semantic retrieval.
-- **Autonomous Tool Execution**: The AI engine dynamically selects and executes specialized tools based on the user's intent:
+## What It Does
+NeuralRAG provides a unified chat interface with several key capabilities:
+- **Local File RAG**: Upload diverse file types (PDF, TXT, XLSX). The system chunks, embeds (using FastEmbed), and stores this data in a local Chroma vector database for semantic retrieval.
+- **Agentic Tool Execution**: Based on the user's prompt, the LangChain agent dynamically routes to specialized tools:
   - Database querying for structured data analysis.
   - Web search for real-time information retrieval.
-  - Visual synthesis for generating charts and images natively within the interface.
-- **Model Agnosticism**: Built on LangChain, the system supports seamless switching between local models (via LM Studio for complete data privacy) and high-performance cloud models (Groq, Gemini, OpenRouter).
+  - Visual synthesis for generating charts and images.
+- **Model Switching**: Easily swap between local models (via LM Studio) and cloud models (Groq, Gemini, OpenRouter) depending on the task.
 
-## Implementation Architecture
-NeuralRAG is built with a focus on robust backend orchestration and a premium, distraction-free user experience.
+## Architecture
+The backend is a Python Flask server orchestrating LangChain frameworks, ChromaDB, and custom Python tool functions. The frontend is built with vanilla JavaScript, HTML, and CSS, designed to be lightweight and responsive without heavy modern framework dependencies.
 
-### Backend Pipeline
-The backend is powered by a Python Flask server integrating LangChain frameworks.
-1. **Document Processing**: Uploaded documents are parsed via specialized loaders, split using recursive character strategies, and embedded using FastEmbed before being indexed in a local ChromaDB instance.
-2. **Agent Orchestration**: A central agent executor manages tool routing. When a user submits a query, the agent evaluates the context and determines whether to perform a vector search, execute a SQL query, fetch real-time web data, or generate a visual asset.
-3. **Self-Healing Visual Delivery**: Image and chart generation utilizes a local proxy architecture to bypass browser-level CORS policies and tracking blockers, ensuring 100% reliable delivery of visual assets.
+## What I'd Improve Next
+Building this taught me a lot, but there's plenty of room for improvement:
+1. **Error Handling & State Sync**: The connection between the Flask backend and vanilla JS frontend occasionally drops state during long-running agent tasks. I'd migrate to WebSockets or Server-Sent Events (SSE) for true streaming.
+2. **Database Security**: The SQL querying agent currently has too much unconstrained access. In a real-world scenario, this needs strict read-only roles and query sanitization.
+3. **Agent Loop Control**: The LangChain agent occasionally gets stuck in thought loops when a tool fails to return expected data. I need to implement better fallback handlers and execution timeouts.
 
-### Frontend Interface
-The frontend is a lightweight, dependency-free vanilla JavaScript, HTML, and CSS application. It utilizes a bioluminescent, deep-ocean aesthetic designed for professional, low-fatigue interaction. The interface features:
-- Asynchronous token-based DOM injection for reliable rendering of complex media.
-- Responsive, dynamic tool toggling.
-- Secure, client-side API key management.
-
-## Getting Started
-
-### Prerequisites
-- Python 3.10+
-- An active MySQL installation (if database querying is enabled)
-- (Optional) LM Studio for local, offline model execution
-
-### Installation
+## Setup
 1. Clone the repository.
-2. Install the required Python dependencies:
-   `pip install -r requirements.txt`
-3. Configure your local environment variables in a `.env` file (e.g., database credentials).
-4. Run the Flask server:
-   `python server.py`
-5. Navigate to `http://localhost:5000` in your web browser.
+2. Install dependencies: `pip install -r requirements.txt`
+3. Configure `.env` variables if using cloud models or the database.
+4. Run the backend: `python server.py`
+5. Open `http://localhost:5000` in your browser.
+
+---
+Built by Senthamizhvelan

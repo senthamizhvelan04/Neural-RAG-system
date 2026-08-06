@@ -12,7 +12,7 @@ load_dotenv()
 
 # --- LANGCHAIN IMPORTS ---
 from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -23,6 +23,11 @@ from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.tools import tool
+
+# --- ADVANCED RAG IMPORTS ---
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever, ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import FlashrankRerank
 
 # ============================================================
 # LOCAL VECTOR DB CONFIG
@@ -118,10 +123,10 @@ MODEL_CONFIGS = {
         "model": "meta-llama/llama-3.3-70b-instruct",
     },
     "gemini": {
-        "name": "Gemini 2.5 Flash",
+        "name": "Gemini Flash (Latest)",
         "type": "gemini",
         "key_provider": "gemini",
-        "model": "gemini-2.5-flash",
+        "model": "gemini-flash-latest",
     },
     "local": {
         "name": "LM Studio (Offline)",
@@ -253,22 +258,41 @@ def generate_image(prompt: str) -> str:
             
         encoded_prompt = urllib.parse.quote(prompt)
         seed = random.randint(1, 1000000)
-        # Use the keyless legacy endpoint which we verified works
-        pollinations_url = f"https://pollinations.ai/p/{encoded_prompt}?seed={seed}&nologo=true"
         
-        # Fetch image on backend to bypass browser CORS/Referrer blocks
-        response = requests.get(pollinations_url, timeout=30)
-        if response.status_code == 200:
-            filename = f"gen_{int(time.time())}_{seed}.jpg"
-            filepath = os.path.join(gen_dir, filename)
-            with open(filepath, "wb") as f:
-                f.write(response.content)
+        # Try different models to bypass specific overloaded queues
+        models_to_try = ["flux", "turbo", ""]
+        last_error = ""
+        
+        for model in models_to_try:
+            model_param = f"&model={model}" if model else ""
+            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?seed={seed}&nologo=true{model_param}"
             
-            # Return local URL that the browser can always load
-            local_url = f"/static/generated/{filename}"
-            return f":::IMAGE:::{local_url}:::END:::"
-        else:
-            return f"Error: Image service returned status {response.status_code}"
+            try:
+                # Fetch image on backend to bypass browser CORS/Referrer blocks
+                response = requests.get(pollinations_url, timeout=45)
+                if response.status_code == 200:
+                    filename = f"gen_{int(time.time())}_{seed}.jpg"
+                    filepath = os.path.join(gen_dir, filename)
+                    with open(filepath, "wb") as f:
+                        f.write(response.content)
+                    
+                    # Return local URL that the browser can always load
+                    local_url = f"/static/generated/{filename}"
+                    return f":::IMAGE:::{local_url}:::END:::"
+                elif response.status_code == 429:
+                    last_error = "429 Too Many Requests"
+                    time.sleep(2) # Backoff before trying next model
+                    continue
+                else:
+                    last_error = f"Status {response.status_code}"
+            except requests.Timeout:
+                last_error = "Timeout"
+                continue
+            except Exception as e:
+                last_error = str(e)
+                continue
+                
+        return f"Error: Image service is currently overloaded ({last_error}). Please try again later."
     except Exception as e:
         return f"Error generating image: {str(e)}"
 
@@ -384,12 +408,61 @@ def get_vector_store():
         persist_directory=CHROMA_DB_PATH,
     )
 
+# --- GLOBAL BM25 RETRIEVER ---
+global_bm25_retriever = None
+
+def update_bm25_retriever():
+    """Rebuild BM25 sparse index from ChromaDB."""
+    global global_bm25_retriever
+    try:
+        vs = get_vector_store()
+        db_data = vs.get(include=["documents", "metadatas"])
+        docs = []
+        if db_data and db_data.get("documents"):
+            for doc_text, meta in zip(db_data["documents"], db_data["metadatas"]):
+                if doc_text:
+                    docs.append(Document(page_content=doc_text, metadata=meta))
+        
+        if docs:
+            global_bm25_retriever = BM25Retriever.from_documents(docs)
+            global_bm25_retriever.k = 15
+            print(f"[OK] BM25 Sparse Index rebuilt with {len(docs)} documents.")
+        else:
+            global_bm25_retriever = None
+    except Exception as e:
+        print(f"[Warning] Failed to initialize BM25: {e}")
+
+# Initialize on startup
+update_bm25_retriever()
+
 def get_agent():
     llm = get_llm()
     vector_store = get_vector_store()
-    base_retriever = vector_store.as_retriever(search_kwargs={"k": 15})
-    retriever_tool = create_retriever_tool(base_retriever, "knowledge_base_search",
-        "Use this tool to find information in uploaded documents and Excel files.")
+    
+    # 1. Dense Retriever (Chroma)
+    dense_retriever = vector_store.as_retriever(search_kwargs={"k": 15})
+    
+    # 2. Hybrid Search (Ensemble: Dense + Sparse)
+    if global_bm25_retriever:
+        ensemble_retriever = EnsembleRetriever(
+            retrievers=[dense_retriever, global_bm25_retriever], 
+            weights=[0.5, 0.5]
+        )
+    else:
+        ensemble_retriever = dense_retriever
+        
+    # 3. Cross-Encoder Reranking (FlashRank)
+    compressor = FlashrankRerank(top_n=5)
+    advanced_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor, 
+        base_retriever=ensemble_retriever
+    )
+
+    retriever_tool = create_retriever_tool(
+        advanced_retriever, 
+        "knowledge_base_search",
+        "Use this tool to find information in uploaded documents and Excel files. This uses an advanced Hybrid Search + Reranker pipeline."
+    )
 
     tools = [retriever_tool]
     if app_state["web_search"]:
@@ -443,6 +516,69 @@ def process_excel(file_path):
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
+
+import json
+from flask import Response
+
+@app.route("/api/chat_stream", methods=["POST"])
+def chat_stream():
+    try:
+        data = request.json
+        user_message = data.get("message", "").strip()
+        if not user_message:
+            return jsonify({"error": "Empty message"}), 400
+
+        chat_history = []
+        for msg in app_state["chat_history"]:
+            if msg["role"] == "user":
+                chat_history.append(HumanMessage(content=msg["content"]))
+            else:
+                chat_history.append(AIMessage(content=msg["content"]))
+
+        def generate():
+            agent_executor = get_agent()
+            final_answer = ""
+            tools_used = []
+            try:
+                for chunk in agent_executor.stream({"input": user_message, "chat_history": chat_history}):
+                    if "actions" in chunk:
+                        for action in chunk["actions"]:
+                            yield f"data: {json.dumps({'status': f'Running tool: {action.tool}'})}\n\n"
+                    elif "steps" in chunk:
+                        for step in chunk["steps"]:
+                            # Handle both AgentStep objects and (action, observation) tuples
+                            if hasattr(step, "action"):
+                                act = step.action
+                                obs = step.observation
+                            else:
+                                act, obs = step
+                                
+                            tool_name = act.tool if hasattr(act, "tool") else (act[1].tool if isinstance(act, tuple) else None)
+                            if tool_name in ["generate_image", "generate_chart"]:
+                                tools_used.append(obs if not isinstance(obs, tuple) else obs[1])
+                        yield f"data: {json.dumps({'status': 'Processing results...'})}\n\n"
+                    elif "output" in chunk:
+                        final_answer = chunk["output"]
+                        for tool_res in tools_used:
+                            if tool_res not in final_answer:
+                                final_answer += f"\n\n{tool_res}"
+                        
+                        # Stream the final answer word by word for a real-time effect
+                        words = final_answer.split(" ")
+                        for i, word in enumerate(words):
+                            space = " " if i < len(words) - 1 else ""
+                            yield f"data: {json.dumps({'token': word + space})}\n\n"
+                            time.sleep(0.01)
+
+                app_state["chat_history"].append({"role": "user", "content": user_message})
+                app_state["chat_history"].append({"role": "assistant", "content": final_answer})
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+        return Response(generate(), mimetype="text/event-stream")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -522,6 +658,11 @@ def upload():
                 for doc in loaded:
                     doc.page_content = f"Source: {f.filename}\n" + doc.page_content
                 documents.extend(loaded)
+            elif f.filename.endswith(".docx"):
+                loaded = Docx2txtLoader(file_path).load()
+                for doc in loaded:
+                    doc.page_content = f"Source: {f.filename}\n" + doc.page_content
+                documents.extend(loaded)
             elif f.filename.endswith((".xlsx", ".xls")):
                 text_data = process_excel(file_path)
                 documents.append(Document(page_content=text_data, metadata={"source": f.filename}))
@@ -549,6 +690,9 @@ def upload():
 
         vector_store = get_vector_store()
         vector_store.add_documents(chunks)
+        
+        # Rebuild BM25 with the new chunks
+        update_bm25_retriever()
 
         return jsonify({"message": f"Saved {len(chunks)} chunks to brain! (stored locally)", "chunks": len(chunks)})
 
@@ -596,6 +740,7 @@ def delete_file(filename):
         try:
             vector_store = get_vector_store()
             vector_store._collection.delete(where={"source": filename})
+            update_bm25_retriever()
         except Exception as e:
             print(f"[Warning] Could not delete '{filename}' from ChromaDB: {e}")
             
@@ -629,6 +774,23 @@ def add_key():
         return jsonify({"message": f"Key added to {provider}! Total keys: {len(key_pool.pools[provider])}", "status": key_pool.get_status()})
     else:
         return jsonify({"error": "Key already exists or is invalid"}), 400
+
+@app.route("/api/keys/active", methods=["POST"])
+def set_active_key():
+    """Manually set the active key for a provider."""
+    data = request.json
+    provider = data.get("provider", "").strip().lower()
+    index_str = data.get("index")
+    
+    if provider in key_pool.pools and index_str is not None:
+        try:
+            idx = int(index_str) - 1
+            if 0 <= idx < len(key_pool.pools[provider]):
+                key_pool.index[provider] = idx
+                return jsonify({"message": f"Active key set", "status": key_pool.get_status()})
+        except ValueError:
+            pass
+    return jsonify({"error": "Invalid request"}), 400
 
 @app.route("/api/models", methods=["GET"])
 def list_models():

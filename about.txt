@@ -1,6 +1,6 @@
-my name ragesh and im like hacking
+Hi, I'm Senthamizhvelan — this is a personal project I built to learn RAG pipelines and agentic tool-calling.
+
+Setup:
 venv\Scripts\activate
-
-python init_db.py      
-
-streamlit run app.py 0
+python init_db.py
+python server.py

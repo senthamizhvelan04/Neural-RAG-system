@@ -1,0 +1,30 @@
+[
+  {
+    "date": "2026-08-03",
+    "macrostructure": "Workbench",
+    "theme": "studied-DNA (source: neumorphism image)",
+    "enrichment": "none",
+    "brief": "NeuralRAG · Internal AI Chat Interface"
+  },
+  {
+    "date": "2026-08-03",
+    "macrostructure": "Split Studio",
+    "theme": "Cobalt",
+    "enrichment": "none",
+    "brief": "NeuralRAG · Pivot away from Neumorphism to catalog theme"
+  },
+  {
+    "date": "2026-08-03",
+    "macrostructure": "Marquee Hero",
+    "theme": "Lumen (Night)",
+    "enrichment": "none",
+    "brief": "NeuralRAG · Cinematic premium WOW pivot"
+  },
+  {
+    "date": "2026-08-03",
+    "macrostructure": "Workbench",
+    "theme": "Neumorphism (Custom)",
+    "enrichment": "none",
+    "brief": "NeuralRAG · User explicit rollback to soft tactile UI"
+  }
+]

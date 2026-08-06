@@ -9,6 +9,7 @@ const chatInput = document.getElementById('chatInput');
 const btnSend = document.getElementById('btnSend');
 const btnToggleSidebar = document.getElementById('btnToggleSidebar');
 const btnClear = document.getElementById('btnClear');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 const btnSaveBrain = document.getElementById('btnSaveBrain');
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
@@ -52,7 +53,33 @@ marked.setOptions({
 // ============================================================
 btnToggleSidebar.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
+    if (sidebarBackdrop) {
+        if (!sidebar.classList.contains('collapsed') && window.innerWidth <= 768) {
+            sidebarBackdrop.classList.remove('hidden');
+        } else {
+            sidebarBackdrop.classList.add('hidden');
+        }
+    }
 });
+
+if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', () => {
+        sidebar.classList.add('collapsed');
+        sidebarBackdrop.classList.add('hidden');
+    });
+}
+
+function handleResize() {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        sidebar.classList.add('collapsed');
+        if (sidebarBackdrop) sidebarBackdrop.classList.add('hidden');
+    } else {
+        sidebar.classList.remove('collapsed');
+        if (sidebarBackdrop) sidebarBackdrop.classList.add('hidden');
+    }
+}
+window.addEventListener('resize', handleResize);
+document.addEventListener('DOMContentLoaded', handleResize);
 
 // ============================================================
 // MODEL SELECTOR
@@ -61,8 +88,8 @@ const modelButtons = document.querySelectorAll('.model-btn');
 const modelNames = {
     groq: 'Groq (Llama 3.3)',
     openrouter: 'OpenRouter',
-    gemini: 'Gemini 2.5',
-    local: 'LM Studio (Offline)'
+    gemini: 'Gemini 2.5 Flash',
+    local: 'LM Studio (Local)'
 };
 
 modelButtons.forEach(btn => {
@@ -81,6 +108,7 @@ function selectModel(model) {
 document.getElementById('toggleWebSearch').addEventListener('change', (e) => updateSettings({ web_search: e.target.checked }));
 document.getElementById('toggleSystemControl').addEventListener('change', (e) => updateSettings({ system_control: e.target.checked }));
 document.getElementById('toggleMySQL').addEventListener('change', (e) => updateSettings({ mysql_enabled: e.target.checked }));
+document.getElementById('toggleImageGen').addEventListener('change', (e) => updateSettings({ image_gen_enabled: e.target.checked }));
 
 async function updateSettings(data) {
     try {
@@ -533,6 +561,7 @@ btnSaveBrain.addEventListener('click', async () => {
 // CLEAR CHAT
 // ============================================================
 btnClear.addEventListener('click', async () => {
+    if (!confirm("Clear the entire conversation? This can't be undone.")) return;
     try {
         await fetch('/api/clear', { method: 'POST' });
         messagesContainer.innerHTML = '';
