@@ -347,7 +347,7 @@ def generate_chart(chart_type: str, title: str, labels: str, data: str) -> str:
 # ============================================================
 # FLASK APP
 # ============================================================
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__, static_folder="frontend-react/dist", static_url_path="/")
 CORS(app)
 
 # --- LOCAL EMBEDDINGS (loaded once) ---
@@ -807,6 +807,20 @@ def list_models():
             "available": has_key,
         })
     return jsonify({"models": models, "active": app_state["model"]})
+
+from flask import send_from_directory
+
+@app.route('/static/generated/<path:filename>')
+def serve_generated_images(filename):
+    return send_from_directory('static/generated', filename)
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
 # ============================================================
 # MAIN
