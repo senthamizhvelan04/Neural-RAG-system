@@ -357,7 +357,7 @@ print("[OK] Embedding model loaded!")
 
 # --- STATE ---
 app_state = {
-    "model": "local",  # Default to LM Studio since cloud APIs may be blocked
+    "model": "groq",  # Default to Groq on Render since LM Studio is not available
     "web_search": False,
     "system_control": True,
     "mysql_enabled": True,
