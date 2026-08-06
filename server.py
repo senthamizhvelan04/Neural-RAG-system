@@ -351,9 +351,16 @@ app = Flask(__name__, static_folder="frontend-react/dist", static_url_path="/")
 CORS(app)
 
 # --- LOCAL EMBEDDINGS (loaded once) ---
-print("[*] Loading embedding model (first time may take a moment)...")
-dense_embeddings = FastEmbedEmbeddings()
-print("[OK] Embedding model loaded!")
+dense_embeddings = None
+
+def get_embeddings():
+    global dense_embeddings
+    if dense_embeddings is None:
+        print("[*] Loading embedding model (first time may take a moment)...")
+        from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+        dense_embeddings = FastEmbedEmbeddings()
+        print("[OK] Embedding model loaded!")
+    return dense_embeddings
 
 # --- STATE ---
 app_state = {
@@ -404,7 +411,7 @@ def get_vector_store():
     """Get or create the local ChromaDB vector store."""
     return Chroma(
         collection_name=COLLECTION_NAME,
-        embedding_function=dense_embeddings,
+        embedding_function=get_embeddings(),
         persist_directory=CHROMA_DB_PATH,
     )
 
