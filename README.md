@@ -1,4 +1,4 @@
-# 🧠 NeuralRAG: Autonomous Agentic RAG System
+# NeuralRAG: Autonomous Agentic RAG System
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Available-success?style=for-the-badge)](https://neural-rag-system.onrender.com/)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
@@ -11,7 +11,7 @@ Moving beyond basic wrapper scripts, this system dynamically routes user queries
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
 - **Advanced Document RAG (Hybrid Search)**: Upload diverse file types (PDF, DOCX, TXT, XLSX). The system chunks, embeds using `FastEmbed`, and stores data in a local Chroma vector database.
 - **Autonomous Tool-Calling Agent**: Powered by LangChain, the core LLM acts as an autonomous routing agent that can intelligently decide when to use:
@@ -23,7 +23,7 @@ Moving beyond basic wrapper scripts, this system dynamically routes user queries
 
 ---
 
-## 🏗️ Tech Stack & Architecture
+## Tech Stack & Architecture
 
 ### Backend
 * **Framework:** Python, Flask
@@ -38,7 +38,7 @@ Moving beyond basic wrapper scripts, this system dynamically routes user queries
 
 ---
 
-## ⚙️ How It Works Under the Hood
+## How It Works Under the Hood
 
 When a user submits a prompt, NeuralRAG performs the following pipeline:
 1. **Context Hydration**: The system polls the active conversation history.
@@ -51,7 +51,7 @@ When a user submits a prompt, NeuralRAG performs the following pipeline:
 
 ---
 
-## 🚀 Getting Started Locally
+## Getting Started Locally
 
 ### Prerequisites
 - Python 3.11+
@@ -86,7 +86,7 @@ When a user submits a prompt, NeuralRAG performs the following pipeline:
 
 ---
 
-## 📈 Future Roadmap
+## Future Roadmap
 
 - **WebSocket Migration**: Transitioning from SSE to full bi-directional WebSockets for enhanced interruption controls.
 - **Role-Based DB Access**: Implementing strict read-only database connections with query sanitization layers to ensure absolute security in enterprise environments.
