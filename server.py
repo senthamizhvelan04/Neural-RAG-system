@@ -513,9 +513,6 @@ def process_excel(file_path):
 # ROUTES
 # ============================================================
 
-@app.route("/")
-def index():
-    return send_from_directory("static", "index.html")
 
 import json
 from flask import Response
