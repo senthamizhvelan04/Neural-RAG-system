@@ -439,8 +439,8 @@ def update_bm25_retriever():
     except Exception as e:
         print(f"[Warning] Failed to initialize BM25: {e}")
 
-# Initialize on startup
-update_bm25_retriever()
+# Do NOT initialize on startup to avoid Gunicorn fork() deadlocks with ONNX Runtime!
+# update_bm25_retriever()
 
 def get_agent():
     llm = get_llm()
@@ -544,6 +544,11 @@ def chat_stream():
             import threading
             import queue
             q = queue.Queue()
+            
+            # Pre-load embeddings and BM25 in the main thread to avoid ONNX thread deadlocks
+            get_embeddings()
+            if global_bm25_retriever is None:
+                update_bm25_retriever()
             
             def run_agent():
                 try:
