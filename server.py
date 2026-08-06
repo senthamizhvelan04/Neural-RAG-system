@@ -539,52 +539,67 @@ def chat_stream():
                 chat_history.append(HumanMessage(content=msg["content"]))
             else:
                 chat_history.append(AIMessage(content=msg["content"]))
-
+        
         def generate():
+            import threading
+            import queue
+            q = queue.Queue()
+            
+            def run_agent():
+                try:
+                    agent_executor = get_agent()
+                    for chunk in agent_executor.stream({"input": user_message, "chat_history": chat_history}):
+                        q.put({"type": "chunk", "data": chunk})
+                    q.put({"type": "done"})
+                except Exception as e:
+                    q.put({"type": "error", "error": str(e)})
+
+            t = threading.Thread(target=run_agent)
+            t.start()
+
             try:
-                # Yield immediately to prevent Gunicorn timeout and verify stream works
                 yield f"data: {json.dumps({'status': 'Connecting to AI model...'})}\n\n"
-                
-                agent_executor = get_agent()
                 final_answer = ""
                 tools_used = []
-                for chunk in agent_executor.stream({"input": user_message, "chat_history": chat_history}):
-                    print("CHUNK:", chunk, flush=True)
-                    # Yield raw chunk for debugging
-                    yield f"data: {json.dumps({'token': f'CHUNK: {str(chunk)}'})}\n\n"
-                    # Langchain stream yields dicts like {'actions': ...} or {'steps': ...} or {'output': ...}
-                    if "actions" in chunk:
-                        for action in chunk["actions"]:
-                            yield f"data: {json.dumps({'status': f'Running tool: {action.tool}'})}\n\n"
-                    elif "steps" in chunk:
-                        for step in chunk["steps"]:
-                            # Handle both AgentStep objects and (action, observation) tuples
-                            if hasattr(step, "action"):
-                                act = step.action
-                                obs = step.observation
-                            else:
-                                act, obs = step
-                                
-                            tool_name = act.tool if hasattr(act, "tool") else (act[1].tool if isinstance(act, tuple) else None)
-                            if tool_name in ["generate_image", "generate_chart"]:
-                                tools_used.append(obs if not isinstance(obs, tuple) else obs[1])
-                        yield f"data: {json.dumps({'status': 'Processing results...'})}\n\n"
-                    elif "output" in chunk:
-                        final_answer = chunk["output"]
-                        for tool_res in tools_used:
-                            if tool_res not in final_answer:
-                                final_answer += f"\n\n{tool_res}"
+                
+                while True:
+                    try:
+                        item = q.get(timeout=5.0)
+                    except queue.Empty:
+                        # Keep-alive to prevent Gunicorn timeout
+                        yield f"data: {json.dumps({'status': 'Processing...'})}\n\n"
+                        continue
                         
-                        # Stream the final answer word by word for a real-time effect
-                        words = final_answer.split(" ")
-                        for i, word in enumerate(words):
-                            space = " " if i < len(words) - 1 else ""
-                            yield f"data: {json.dumps({'token': word + space})}\n\n"
-                            time.sleep(0.01)
+                    if item["type"] == "error":
+                        yield f"data: {json.dumps({'error': item['error']})}\n\n"
+                        break
+                    elif item["type"] == "done":
+                        if tools_used:
+                            observations = "\n".join([f"Used tool: {t}" for t in set(tools_used)])
+                            if observations not in final_answer:
+                                final_answer += f"\n\n{observations}"
+                                token_val = "\n\n" + observations
+                                yield f"data: {json.dumps({'token': token_val})}\n\n"
+                        yield f"data: [DONE]\n\n"
+                        
+                        # Save to history AFTER yielding done
+                        app_state["chat_history"].append({"role": "user", "content": user_message})
+                        app_state["chat_history"].append({"role": "assistant", "content": final_answer})
+                        break
+                    elif item["type"] == "chunk":
+                        chunk = item["data"]
+                        # Langchain stream yields dicts like {'actions': ...} or {'steps': ...} or {'output': ...}
+                        if "actions" in chunk:
+                            for action in chunk["actions"]:
+                                yield f"data: {json.dumps({'status': f'Running tool: {action.tool}'})}\n\n"
+                                tools_used.append(action.tool)
+                        elif "steps" in chunk:
+                            pass
+                        elif "output" in chunk:
+                            answer = chunk["output"]
+                            yield f"data: {json.dumps({'token': answer})}\n\n"
+                            final_answer += answer
 
-                app_state["chat_history"].append({"role": "user", "content": user_message})
-                app_state["chat_history"].append({"role": "assistant", "content": final_answer})
-                yield "data: [DONE]\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
