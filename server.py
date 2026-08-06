@@ -549,6 +549,10 @@ def chat_stream():
                 final_answer = ""
                 tools_used = []
                 for chunk in agent_executor.stream({"input": user_message, "chat_history": chat_history}):
+                    print("CHUNK:", chunk, flush=True)
+                    # Yield raw chunk for debugging
+                    yield f"data: {json.dumps({'token': f'CHUNK: {str(chunk)}'})}\n\n"
+                    # Langchain stream yields dicts like {'actions': ...} or {'steps': ...} or {'output': ...}
                     if "actions" in chunk:
                         for action in chunk["actions"]:
                             yield f"data: {json.dumps({'status': f'Running tool: {action.tool}'})}\n\n"
