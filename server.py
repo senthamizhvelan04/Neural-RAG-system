@@ -650,6 +650,19 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/ping_groq", methods=["GET"])
+def ping_groq():
+    import requests
+    try:
+        api_key = key_pool.get_current_key("groq")
+        if not api_key:
+            return jsonify({"status": "no key"})
+        # 5 second timeout
+        res = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=5)
+        return jsonify({"status": res.status_code, "text": res.text[:100]})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)})
+
 @app.route("/api/upload", methods=["POST"])
 def upload():
     try:
