@@ -38,6 +38,10 @@ export const useChat = () => {
         body: JSON.stringify({ message: msg }),
       });
 
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const reader = res.body?.getReader();
       const decoder = new TextDecoder('utf-8');
       if (!reader) throw new Error('No stream reader');

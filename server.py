@@ -451,12 +451,13 @@ def get_agent():
     else:
         ensemble_retriever = dense_retriever
         
-    # 3. Cross-Encoder Reranking (FlashRank)
-    compressor = FlashrankRerank(top_n=5)
-    advanced_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor, 
-        base_retriever=ensemble_retriever
-    )
+    # 3. Cross-Encoder Reranking (FlashRank) - DISABLED for Render deployment due to 30s timeout
+    # compressor = FlashrankRerank(top_n=5)
+    # advanced_retriever = ContextualCompressionRetriever(
+    #     base_compressor=compressor, 
+    #     base_retriever=ensemble_retriever
+    # )
+    advanced_retriever = ensemble_retriever
 
     retriever_tool = create_retriever_tool(
         advanced_retriever, 
