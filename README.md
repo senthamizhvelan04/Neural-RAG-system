@@ -1,5 +1,7 @@
 # NeuralRAG 
 
+🌍 **Live Demo:** [https://neural-rag-system.onrender.com/](https://neural-rag-system.onrender.com/)
+
 NeuralRAG is a personal learning project I built to explore Retrieval-Augmented Generation (RAG), LangChain agents, and autonomous tool-calling. I wanted to move beyond basic API scripts and build a full-stack chat application that can read local files, query a database, and dynamically search the web.
 
 ## What It Does
