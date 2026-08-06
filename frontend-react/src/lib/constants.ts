@@ -9,10 +9,10 @@ export const PROVIDERS = ['gemini', 'groq', 'openrouter'] as const;
 export type Provider = typeof PROVIDERS[number];
 
 export const WELCOME_PROMPTS = [
-  { icon: 'Database', text: 'Query the database for top employees' },
-  { icon: 'Search', text: 'Search the web for latest AI news' },
-  { icon: 'ImageIcon', text: 'Generate a picture of a sunset' },
-  { icon: 'FileText', text: 'Summarize uploaded documents' },
+  { icon: 'Database', title: 'Data Query', text: 'Query the database for top employees' },
+  { icon: 'Search', title: 'Web Search', text: 'Search the web for latest AI news' },
+  { icon: 'ImageIcon', title: 'Image Gen', text: 'Generate a picture of a sunset' },
+  { icon: 'FileText', title: 'Summarize', text: 'Summarize uploaded documents' },
 ];
 
 export const TOOL_CONFIG = [

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { Brain, Sparkles, FileText, Search, Code } from 'lucide-react';
 import { WELCOME_PROMPTS } from '../lib/constants';
 
@@ -10,7 +11,7 @@ interface WelcomeScreenProps {
 const ICONS = [Sparkles, FileText, Search, Code];
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSend }) => {
-  const container = {
+  const container: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -18,7 +19,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSend }) => {
     }
   };
 
-  const item = {
+  const item: Variants = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };

@@ -1,15 +1,8 @@
 import { marked } from 'marked';
-import hljs from 'highlight.js';
 
 marked.setOptions({
   breaks: true,
   gfm: true,
-  highlight(code: string, lang: string) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value;
-    }
-    return hljs.highlightAuto(code).value;
-  },
 });
 
 export const parseMarkdown = (content: string): string => {

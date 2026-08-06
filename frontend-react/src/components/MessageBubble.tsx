@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Copy, Check } from 'lucide-react';
+import { Brain } from 'lucide-react';
 import { parseMarkdown, extractMedia } from '../lib/markdown';
 import type { Message } from '../hooks/useChat';
 

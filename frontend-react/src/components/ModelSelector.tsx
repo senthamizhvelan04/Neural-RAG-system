@@ -42,9 +42,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, activeMode
                 <span className={`text-sm font-medium ${isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'}`}>
                   {model.name}
                 </span>
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  {model.provider}
-                </span>
               </div>
               
               <div className="flex items-center gap-2">
