@@ -26,8 +26,8 @@ from langchain_core.tools import tool
 
 # --- ADVANCED RAG IMPORTS ---
 from langchain_community.retrievers import BM25Retriever
-from langchain.retrievers import EnsembleRetriever, ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import FlashrankRerank
+from langchain_classic.retrievers import EnsembleRetriever, ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import FlashrankRerank
 
 # ============================================================
 # LOCAL VECTOR DB CONFIG
