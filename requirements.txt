@@ -18,3 +18,4 @@ langchain-core
 duckduckgo-search
 pandas
 requests
+langchain-classic
