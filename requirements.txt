@@ -16,3 +16,5 @@ python-dotenv
 rank-bm25
 langchain-core
 duckduckgo-search
+pandas
+requests
