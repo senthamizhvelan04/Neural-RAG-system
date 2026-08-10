@@ -29,6 +29,24 @@ from langchain_core.tools import create_retriever_tool
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.tools import tool
 
+# --- WEB SEARCH WRAPPER ---
+# Wrapping DuckDuckGoSearchRun in a simple @tool so Groq/Llama can call it
+# (the native DDGInput schema causes 'Failed to call a function' errors)
+_ddg_search = None
+
+@tool
+def web_search(query: str) -> str:
+    """Search the web using DuckDuckGo. Use this when the user asks about current events, news, or anything that requires up-to-date information from the internet.
+    Input should be a search query string.
+    """
+    global _ddg_search
+    if _ddg_search is None:
+        _ddg_search = DuckDuckGoSearchRun()
+    try:
+        return _ddg_search.invoke(query)
+    except Exception as e:
+        return f"Web search failed: {str(e)}"
+
 # --- ADVANCED RAG IMPORTS ---
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever, ContextualCompressionRetriever
@@ -471,7 +489,7 @@ def get_agent():
 
     tools = [retriever_tool]
     if app_state["web_search"]:
-        tools.append(DuckDuckGoSearchRun())
+        tools.append(web_search)
     if app_state["system_control"]:
         tools.append(system_control)
     if app_state["mysql_enabled"]:
@@ -488,13 +506,14 @@ def get_agent():
         """
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", f"""You are a smart assistant with database querying and data visualization capabilities.
+        ("system", f"""You are a smart assistant with database querying, web search, and data visualization capabilities.
         1. FIRST check 'chat_history' for context.
         2. THEN use 'knowledge_base_search' to find answers in the uploaded files.
         3. If the user asks about a specific row or data point in an Excel file, search for the keywords in that row.
         4. If the user asks to open an application or run a system command, use the 'system_control' tool.
         5. CRITICAL: If the user asks to visualize data, plot a chart, or create a graph from data, use the 'generate_chart' tool. This tool returns an HTML img tag. You MUST include this EXACT HTML tag in your final response without modifying it.
-        6. Format your responses using Markdown for readability.
+        6. If the user asks about current events, news, or real-time information, use the 'web_search' tool.
+        7. Format your responses using Markdown for readability.
         {db_info}"""),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
