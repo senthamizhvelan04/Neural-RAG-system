@@ -244,59 +244,6 @@ import random
 import urllib.parse
 
 @tool
-def generate_image(prompt: str) -> str:
-    """Generate an image based on a description.
-    Use this tool when the user asks you to 'draw', 'paint', 'create an image', or 'generate a picture'.
-    The input MUST be a detailed descriptive prompt for the image.
-    This tool returns a local URL for the generated image.
-    """
-    try:
-        # Create directory if it doesn't exist
-        gen_dir = os.path.join("static", "generated")
-        if not os.path.exists(gen_dir):
-            os.makedirs(gen_dir)
-            
-        encoded_prompt = urllib.parse.quote(prompt)
-        seed = random.randint(1, 1000000)
-        
-        # Try different models to bypass specific overloaded queues
-        models_to_try = ["flux", "turbo", ""]
-        last_error = ""
-        
-        for model in models_to_try:
-            model_param = f"&model={model}" if model else ""
-            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?seed={seed}&nologo=true{model_param}"
-            
-            try:
-                # Fetch image on backend to bypass browser CORS/Referrer blocks
-                response = requests.get(pollinations_url, timeout=45)
-                if response.status_code == 200:
-                    filename = f"gen_{int(time.time())}_{seed}.jpg"
-                    filepath = os.path.join(gen_dir, filename)
-                    with open(filepath, "wb") as f:
-                        f.write(response.content)
-                    
-                    # Return local URL that the browser can always load
-                    local_url = f"/static/generated/{filename}"
-                    return f":::IMAGE:::{local_url}:::END:::"
-                elif response.status_code == 429:
-                    last_error = "429 Too Many Requests"
-                    time.sleep(2) # Backoff before trying next model
-                    continue
-                else:
-                    last_error = f"Status {response.status_code}"
-            except requests.Timeout:
-                last_error = "Timeout"
-                continue
-            except Exception as e:
-                last_error = str(e)
-                continue
-                
-        return f"Error: Image service is currently overloaded ({last_error}). Please try again later."
-    except Exception as e:
-        return f"Error generating image: {str(e)}"
-
-@tool
 def generate_chart(chart_type: str, title: str, labels: str, data: str) -> str:
     """Generate a data visualization chart (bar, line, or pie).
     Use this tool ONLY when the user asks to visualize data, plot a chart, or graph uploaded data.
@@ -368,7 +315,6 @@ app_state = {
     "web_search": False,
     "system_control": True,
     "mysql_enabled": True,
-    "image_gen_enabled": True,
     "chat_history": [],
     "uploaded_files": [],
 }
@@ -479,8 +425,6 @@ def get_agent():
         tools.append(system_control)
     if app_state["mysql_enabled"]:
         tools.append(mysql_query)
-    if app_state.get("image_gen_enabled", True):
-        tools.append(generate_image)
         tools.append(generate_chart)
 
     db_info = ""
@@ -497,7 +441,7 @@ def get_agent():
         2. THEN use 'knowledge_base_search' to find answers in the uploaded files.
         3. If the user asks about a specific row or data point in an Excel file, search for the keywords in that row.
         4. If the user asks to open an application or run a system command, use the 'system_control' tool.
-        5. CRITICAL: If the user asks to draw, paint, or generate an artistic picture, use 'generate_image'. If the user asks to visualize data, plot a chart, or create a graph from data, use the 'generate_chart' tool. Both tools return an HTML img tag. You MUST include this EXACT HTML tag in your final response without modifying it.
+        5. CRITICAL: If the user asks to visualize data, plot a chart, or create a graph from data, use the 'generate_chart' tool. This tool returns an HTML img tag. You MUST include this EXACT HTML tag in your final response without modifying it.
         6. Format your responses using Markdown for readability.
         {db_info}"""),
         MessagesPlaceholder(variable_name="chat_history"),
@@ -647,7 +591,7 @@ def chat():
                 # Force-append image/chart HTML if the LLM stripped it
                 if "intermediate_steps" in response:
                     for action, observation in response["intermediate_steps"]:
-                        if action.tool in ["generate_image", "generate_chart"]:
+                        if action.tool in ["generate_chart"]:
                             if observation not in answer:
                                 answer += f"\n\n{observation}"
 
@@ -755,8 +699,6 @@ def settings():
         app_state["system_control"] = data["system_control"]
     if "mysql_enabled" in data:
         app_state["mysql_enabled"] = data["mysql_enabled"]
-    if "image_gen_enabled" in data:
-        app_state["image_gen_enabled"] = data["image_gen_enabled"]
     return jsonify({"status": "ok", "settings": app_state})
 
 @app.route("/api/clear", methods=["POST"])

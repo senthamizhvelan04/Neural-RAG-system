@@ -6,7 +6,6 @@ export type Settings = {
   web_search: boolean;
   system_control: boolean;
   mysql_enabled: boolean;
-  image_gen_enabled: boolean;
 };
 export type KeyPoolInfo = {
   total: number;
@@ -23,7 +22,6 @@ export const useApi = () => {
     web_search: false,
     system_control: true,
     mysql_enabled: true,
-    image_gen_enabled: true,
   });
   const [keys, setKeys] = useState<KeysState>({});
   const [isUploading, setIsUploading] = useState(false);

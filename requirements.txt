@@ -15,7 +15,7 @@ pypdf
 python-dotenv
 rank-bm25
 langchain-core
-duckduckgo-search
+ddgs
 pandas
 requests
 langchain-classic

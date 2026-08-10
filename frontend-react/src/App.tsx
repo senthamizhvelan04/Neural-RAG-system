@@ -48,7 +48,6 @@ export default function App() {
     web_search: settings.web_search,
     system_control: settings.system_control,
     mysql_enabled: settings.mysql_enabled,
-    image_gen_enabled: settings.image_gen_enabled,
   };
 
   const handleToggleTool = useCallback((tool: string) => {
