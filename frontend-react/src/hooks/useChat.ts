@@ -85,10 +85,9 @@ export const useChat = () => {
   }, [isProcessing, scrollToBottom]);
 
   const clearMessages = useCallback(async () => {
-    if (!confirm("Clear the entire conversation? This can't be undone.")) return;
+    setMessages([]);
     try {
       await fetch('/api/clear', { method: 'POST' });
-      setMessages([]);
     } catch { /* silent */ }
   }, []);
 
