@@ -521,7 +521,14 @@ def get_agent():
     ])
 
     agent = create_tool_calling_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True, return_intermediate_steps=True)
+    return AgentExecutor(
+        agent=agent,
+        tools=tools,
+        verbose=True,
+        return_intermediate_steps=True,
+        handle_tool_error=True,      # Auto-retry on tool calling errors
+        max_iterations=5,            # Limit retries to prevent infinite loops
+    )
 
 def process_excel(file_path):
     try:
@@ -569,7 +576,20 @@ def chat_stream():
                         q.put({"type": "chunk", "data": chunk})
                     q.put({"type": "done"})
                 except Exception as e:
-                    q.put({"type": "error", "error": str(e)})
+                    error_msg = str(e)
+                    # FALLBACK: If Groq fails at tool-calling, try direct tool invocation
+                    if "failed to call a function" in error_msg.lower() or "failed_generation" in error_msg.lower():
+                        try:
+                            # Detect if user wants web search
+                            search_keywords = ["search", "news", "latest", "current", "today", "recent", "what is", "who is"]
+                            if app_state["web_search"] and any(kw in user_message.lower() for kw in search_keywords):
+                                result = web_search.invoke(user_message)
+                                q.put({"type": "chunk", "data": {"output": f"Here's what I found:\n\n{result}"}})
+                                q.put({"type": "done"})
+                                return
+                        except Exception:
+                            pass
+                    q.put({"type": "error", "error": error_msg})
 
             t = threading.Thread(target=run_agent)
             t.start()
@@ -686,6 +706,19 @@ def chat():
                         continue
                 # Non-rotatable error or no more keys available
                 break
+
+        # FALLBACK: If all retries failed due to tool-calling issues, try direct tool invocation
+        if last_error and ('failed to call a function' in last_error.lower() or 'failed_generation' in last_error.lower()):
+            try:
+                search_keywords = ["search", "news", "latest", "current", "today", "recent", "what is", "who is"]
+                if app_state["web_search"] and any(kw in user_message.lower() for kw in search_keywords):
+                    result = web_search.invoke(user_message)
+                    answer = f"Here's what I found:\n\n{result}"
+                    app_state["chat_history"].append({"role": "user", "content": user_message})
+                    app_state["chat_history"].append({"role": "assistant", "content": answer})
+                    return jsonify({"response": answer})
+            except Exception:
+                pass
 
         return jsonify({"error": f"All {provider or model_key} keys exhausted. Last error: {last_error}"}), 500
 
