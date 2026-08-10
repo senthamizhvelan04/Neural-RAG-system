@@ -66,7 +66,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ files, isUploading, on
           onChange={handleFileInput} 
           className="hidden" 
           multiple 
-          accept=".txt,.pdf,.md,.csv"
+          accept=".txt,.pdf,.md,.csv,.docx,.xlsx,.xls,.jpg,.jpeg,.png"
         />
         
         {isUploading ? (

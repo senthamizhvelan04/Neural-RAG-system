@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 marked.setOptions({
   breaks: true,
@@ -9,7 +10,7 @@ export const parseMarkdown = (content: string): string => {
   const cleaned = content.trim()
     .replace(/:::IMAGE:::(.*?):::END:::/g, '')
     .replace(/:::CHART:::(.*?):::END:::/g, '');
-  return marked.parse(cleaned) as string;
+  return DOMPurify.sanitize(marked.parse(cleaned) as string);
 };
 
 export const extractMedia = (content: string) => {

@@ -1,14 +1,19 @@
 import os
+import json
 import base64
 import subprocess
 import pandas as pd
 import mysql.connector
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # Load environment variables
 load_dotenv()
+
+# Detect if running on Render (cloud deployment)
+IS_RENDER = os.getenv("RENDER", "").lower() in ("true", "1", "yes") or os.getenv("RENDER_EXTERNAL_URL", "") != ""
 
 # --- LANGCHAIN IMPORTS ---
 from langchain_openai import ChatOpenAI
@@ -158,6 +163,10 @@ def system_control(command: str) -> str:
     or open websites (e.g. 'open youtube.com').
     Input should be a natural language description of what to do.
     """
+    # SECURITY: Disable on cloud deployments to prevent remote command execution
+    if IS_RENDER:
+        return "System control is disabled on cloud deployments for security."
+
     cmd_lower = command.lower().strip()
     for prefix in ["open ", "launch ", "start "]:
         if cmd_lower.startswith(prefix):
@@ -180,14 +189,9 @@ def system_control(command: str) -> str:
                 return f"Tried to open '{target}'."
             except Exception as e:
                 return f"Could not open '{target}': {e}"
-    try:
-        result = subprocess.run(cmd_lower, shell=True, capture_output=True, text=True, timeout=15)
-        output = result.stdout.strip() or result.stderr.strip() or "Command executed (no output)."
-        return f"Command result:\n{output}"
-    except subprocess.TimeoutExpired:
-        return "Command timed out after 15 seconds."
-    except Exception as e:
-        return f"Error running command: {e}"
+    # SECURITY: Only allow commands via the APP_SHORTCUTS allowlist
+    # Arbitrary shell commands are blocked
+    return f"Unknown command: '{command}'. Only application shortcuts are supported."
 
 # ============================================================
 # MYSQL QUERY TOOL
@@ -208,17 +212,24 @@ def mysql_query(query: str) -> str:
     Always use SELECT queries to answer questions about data.
     """
     query_stripped = query.strip().rstrip(';')
-    first_word = query_stripped.split()[0].upper() if query_stripped else ""
-    if first_word in ("DROP", "DELETE", "TRUNCATE", "ALTER", "UPDATE", "INSERT", "CREATE"):
+    # SECURITY: Reject empty queries
+    if not query_stripped:
+        return "Empty query."
+    # SECURITY: Reject multi-statement queries (prevent piggyback injection)
+    if ';' in query_stripped:
+        return "Multi-statement queries are not allowed for safety."
+    # SECURITY: Allowlist — only permit safe read-only commands
+    first_word = query_stripped.split()[0].upper()
+    if first_word not in ("SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN"):
         return "Only SELECT / SHOW / DESCRIBE queries are allowed for safety."
+    conn = None
+    cursor = None
     try:
         conn = get_mysql_connection()
         cursor = conn.cursor()
         cursor.execute(query_stripped)
         columns = [desc[0] for desc in cursor.description] if cursor.description else []
         rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
 
         if not rows:
             return "Query returned 0 rows."
@@ -232,16 +243,20 @@ def mysql_query(query: str) -> str:
         return f"Query returned {len(rows)} rows:\n\n{result}"
     except Exception as e:
         return f"Database Error: {e}. IMPORTANT: The database is offline. Use 'knowledge_base_search' to look for the information in the user's uploaded files instead."
+    finally:
+        if cursor:
+            try: cursor.close()
+            except Exception: pass
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
 # ============================================================
-# IMAGE GENERATION TOOL
+# CHART GENERATION TOOL
 # ============================================================
 import urllib.parse
-
 import requests
 import time
-import random
-import urllib.parse
 
 @tool
 def generate_chart(chart_type: str, title: str, labels: str, data: str) -> str:
@@ -286,7 +301,7 @@ def generate_chart(chart_type: str, title: str, labels: str, data: str) -> str:
             
             local_url = f"/static/generated/{filename}"
             return f":::CHART:::{local_url}:::END:::"
-    except:
+    except Exception:
         pass
         
     return f":::CHART:::{url}:::END:::" # Fallback to direct URL if backend fetch fails
@@ -295,7 +310,41 @@ def generate_chart(chart_type: str, title: str, labels: str, data: str) -> str:
 # FLASK APP
 # ============================================================
 app = Flask(__name__, static_folder="frontend-react/dist", static_url_path="/")
-CORS(app)
+
+# SECURITY: Restrict CORS to known origins
+allowed_origins = [
+    "https://neural-rag-system.onrender.com",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:5173",  # Vite dev server
+]
+CORS(app, origins=allowed_origins)
+
+# SECURITY: Set maximum upload size (16 MB)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+# SECURITY: Add security headers to all responses
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+
+# SECURITY: Rate limiting to prevent abuse
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=["200 per day", "60 per hour"],
+        storage_uri="memory://",
+    )
+except ImportError:
+    # flask-limiter not installed — skip rate limiting gracefully
+    limiter = None
 
 # --- LOCAL EMBEDDINGS (loaded once) ---
 dense_embeddings = None
@@ -310,10 +359,12 @@ def get_embeddings():
     return dense_embeddings
 
 # --- STATE ---
+MAX_CHAT_HISTORY = 50  # Cap to prevent unbounded memory growth
+
 app_state = {
     "model": "groq",  # Default to Groq on Render since LM Studio is not available
     "web_search": False,
-    "system_control": True,
+    "system_control": not IS_RENDER,  # Auto-disable on cloud deployments
     "mysql_enabled": True,
     "chat_history": [],
     "uploaded_files": [],
@@ -425,7 +476,8 @@ def get_agent():
         tools.append(system_control)
     if app_state["mysql_enabled"]:
         tools.append(mysql_query)
-        tools.append(generate_chart)
+    # Chart tool is always available (works with DB data or uploaded data)
+    tools.append(generate_chart)
 
     db_info = ""
     if app_state["mysql_enabled"]:
@@ -436,7 +488,7 @@ def get_agent():
         """
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", f"""You are a smart assistant with system control, database, and image generation capabilities.
+        ("system", f"""You are a smart assistant with database querying and data visualization capabilities.
         1. FIRST check 'chat_history' for context.
         2. THEN use 'knowledge_base_search' to find answers in the uploaded files.
         3. If the user asks about a specific row or data point in an Excel file, search for the keywords in that row.
@@ -465,9 +517,6 @@ def process_excel(file_path):
 # ROUTES
 # ============================================================
 
-
-import json
-from flask import Response
 
 @app.route("/api/chat_stream", methods=["POST"])
 def chat_stream():
@@ -524,7 +573,7 @@ def chat_stream():
                         break
                     elif item["type"] == "done":
                         if tools_used:
-                            observations = "\n".join([f"Used tool: {t}" for t in set(tools_used)])
+                            observations = "\n".join([f"Used tool: {tool_name}" for tool_name in set(tools_used)])
                             if observations not in final_answer:
                                 final_answer += f"\n\n{observations}"
                                 token_val = "\n\n" + observations
@@ -534,6 +583,9 @@ def chat_stream():
                         # Save to history AFTER yielding done
                         app_state["chat_history"].append({"role": "user", "content": user_message})
                         app_state["chat_history"].append({"role": "assistant", "content": final_answer})
+                        # Cap history to prevent unbounded memory growth
+                        if len(app_state["chat_history"]) > MAX_CHAT_HISTORY * 2:
+                            app_state["chat_history"] = app_state["chat_history"][-(MAX_CHAT_HISTORY * 2):]
                         break
                     elif item["type"] == "chunk":
                         chunk = item["data"]
@@ -597,6 +649,9 @@ def chat():
 
                 app_state["chat_history"].append({"role": "user", "content": user_message})
                 app_state["chat_history"].append({"role": "assistant", "content": answer})
+                # Cap history to prevent unbounded memory growth
+                if len(app_state["chat_history"]) > MAX_CHAT_HISTORY * 2:
+                    app_state["chat_history"] = app_state["chat_history"][-(MAX_CHAT_HISTORY * 2):]
 
                 return jsonify({"response": answer})
 
@@ -639,34 +694,44 @@ def upload():
         documents = []
 
         for f in files:
-            app_state["uploaded_files"].append(f.filename)
-            file_path = f"./temp_{f.filename}"
+            # SECURITY: Sanitize filename to prevent path traversal
+            safe_name = secure_filename(f.filename)
+            if not safe_name:
+                safe_name = f"upload_{int(time.time())}"
+            app_state["uploaded_files"].append(safe_name)
+            file_path = f"./temp_{safe_name}"
             f.save(file_path)
-            if f.filename.endswith(".pdf"):
-                loaded = PyPDFLoader(file_path).load()
-                for doc in loaded:
-                    doc.page_content = f"Source: {f.filename}\n" + doc.page_content
-                documents.extend(loaded)
-            elif f.filename.endswith(".docx"):
-                loaded = Docx2txtLoader(file_path).load()
-                for doc in loaded:
-                    doc.page_content = f"Source: {f.filename}\n" + doc.page_content
-                documents.extend(loaded)
-            elif f.filename.endswith((".xlsx", ".xls")):
-                text_data = process_excel(file_path)
-                documents.append(Document(page_content=text_data, metadata={"source": f.filename}))
-            elif f.filename.endswith((".jpg", ".jpeg", ".png")):
-                with open(file_path, "rb") as img_file:
-                    image_b64 = base64.b64encode(img_file.read()).decode("utf-8")
-                llm = get_llm()
-                message = HumanMessage(content=[
-                    {"type": "text", "text": "Describe this image in detail for search indexing."},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
-                ])
-                desc = llm.invoke([message]).content
-                documents.append(Document(page_content=desc, metadata={"source": f.filename}))
-            else:
-                documents.extend(TextLoader(file_path, encoding="utf-8").load())
+            try:
+                if safe_name.endswith(".pdf"):
+                    loaded = PyPDFLoader(file_path).load()
+                    for doc in loaded:
+                        doc.page_content = f"Source: {safe_name}\n" + doc.page_content
+                    documents.extend(loaded)
+                elif safe_name.endswith(".docx"):
+                    loaded = Docx2txtLoader(file_path).load()
+                    for doc in loaded:
+                        doc.page_content = f"Source: {safe_name}\n" + doc.page_content
+                    documents.extend(loaded)
+                elif safe_name.endswith((".xlsx", ".xls")):
+                    text_data = process_excel(file_path)
+                    documents.append(Document(page_content=text_data, metadata={"source": safe_name}))
+                elif safe_name.endswith((".jpg", ".jpeg", ".png")):
+                    with open(file_path, "rb") as img_file:
+                        image_b64 = base64.b64encode(img_file.read()).decode("utf-8")
+                    llm = get_llm()
+                    message = HumanMessage(content=[
+                        {"type": "text", "text": "Describe this image in detail for search indexing."},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                    ])
+                    desc = llm.invoke([message]).content
+                    documents.append(Document(page_content=desc, metadata={"source": safe_name}))
+                else:
+                    documents.extend(TextLoader(file_path, encoding="utf-8").load())
+            finally:
+                # SECURITY: Always clean up temp files after processing
+                if os.path.exists(file_path):
+                    try: os.remove(file_path)
+                    except OSError: pass
 
         if paste_text:
             documents.append(Document(page_content=paste_text, metadata={"source": "User Paste"}))
@@ -716,7 +781,7 @@ def delete_file(filename):
         if filename in app_state["uploaded_files"]:
             app_state["uploaded_files"].remove(filename)
             
-        file_path = f"./temp_{filename}"
+        file_path = f"./temp_{secure_filename(filename)}"
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
@@ -795,7 +860,7 @@ def list_models():
         })
     return jsonify({"models": models, "active": app_state["model"]})
 
-from flask import send_from_directory
+# send_from_directory already imported at top
 
 @app.route('/static/generated/<path:filename>')
 def serve_generated_images(filename):

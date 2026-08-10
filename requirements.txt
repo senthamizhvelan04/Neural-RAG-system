@@ -4,6 +4,7 @@ fastembed
 FlashRank
 Flask
 flask-cors
+flask-limiter
 gunicorn
 langchain
 langchain-community
@@ -19,3 +20,4 @@ ddgs
 pandas
 requests
 langchain-classic
+langchain-text-splitters

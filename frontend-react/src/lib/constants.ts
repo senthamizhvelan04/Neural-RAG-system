@@ -11,13 +11,12 @@ export type Provider = typeof PROVIDERS[number];
 export const WELCOME_PROMPTS = [
   { icon: 'Database', title: 'Data Query', text: 'Query the database for top employees' },
   { icon: 'Search', title: 'Web Search', text: 'Search the web for latest AI news' },
-  { icon: 'ImageIcon', title: 'Image Gen', text: 'Generate a picture of a sunset' },
-  { icon: 'FileText', title: 'Summarize', text: 'Summarize uploaded documents' },
+  { icon: 'FileText', title: 'Analyze Docs', text: 'Analyze and summarize my uploaded documents' },
+  { icon: 'Code', title: 'Visualize Data', text: 'Create a chart from uploaded data' },
 ];
 
 export const TOOL_CONFIG = [
   { key: 'web_search', label: 'Web Search', icon: 'Search' },
   { key: 'system_control', label: 'System Control', icon: 'Monitor' },
   { key: 'mysql_enabled', label: 'MySQL Access', icon: 'Database' },
-  { key: 'image_gen_enabled', label: 'Image & Charts', icon: 'ImageIcon' },
 ] as const;
